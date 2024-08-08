@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:infinite_listview/infinite_listview.dart';
 
 typedef TextMapper = String Function(String numberText);
@@ -148,45 +149,57 @@ class _NumberPickerState extends State<NumberPicker> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: widget.axis == Axis.vertical
-          ? widget.itemWidth
-          : widget.itemCount * widget.itemWidth,
-      height: widget.axis == Axis.vertical
-          ? widget.itemCount * widget.itemHeight
-          : widget.itemHeight,
-      child: NotificationListener<ScrollEndNotification>(
-        onNotification: (not) {
-          if (not.dragDetails?.primaryVelocity == 0) {
-            Future.microtask(() => _maybeCenterValue());
-          }
-          return true;
-        },
-        child: Stack(
-          children: [
-            if (widget.infiniteLoop)
-              InfiniteListView.builder(
-                scrollDirection: widget.axis,
-                controller: _scrollController as InfiniteScrollController,
+    return Listener(
+      // Allow mouse scroll (vertical) to affect horizontal number picker
+      onPointerSignal: (event) {
+        if(event is PointerScrollEvent) {
+          _scrollController.animateTo(
+            _scrollController.offset + event.scrollDelta.dy,
+            duration: Duration(milliseconds: 2),
+            curve: Curves.bounceIn,
+          );
+        }
+      },
+      child: SizedBox(
+        width: widget.axis == Axis.vertical
+            ? widget.itemWidth
+            : widget.itemCount * widget.itemWidth,
+        height: widget.axis == Axis.vertical
+            ? widget.itemCount * widget.itemHeight
+            : widget.itemHeight,
+        child: NotificationListener<ScrollEndNotification>(
+          onNotification: (not) {
+            if (not.dragDetails?.primaryVelocity == 0) {
+              Future.microtask(() => _maybeCenterValue());
+            }
+            return true;
+          },
+          child: Stack(
+            children: [
+              if (widget.infiniteLoop)
+                InfiniteListView.builder(
+                  scrollDirection: widget.axis,
+                  controller: _scrollController as InfiniteScrollController,
+                  itemExtent: itemExtent,
+                  itemBuilder: _itemBuilder,
+                  padding: EdgeInsets.zero,
+                )
+              else
+                ListView.builder(
+                  itemCount: listItemsCount,
+                  scrollDirection: widget.axis,
+                  controller: _scrollController,
+                  itemExtent: itemExtent,
+                  itemBuilder: _itemBuilder,
+                  padding: EdgeInsets.zero,
+                ),
+              _NumberPickerSelectedItemDecoration(
+                axis: widget.axis,
                 itemExtent: itemExtent,
-                itemBuilder: _itemBuilder,
-                padding: EdgeInsets.zero,
-              )
-            else
-              ListView.builder(
-                itemCount: listItemsCount,
-                scrollDirection: widget.axis,
-                controller: _scrollController,
-                itemExtent: itemExtent,
-                itemBuilder: _itemBuilder,
-                padding: EdgeInsets.zero,
+                decoration: widget.decoration,
               ),
-            _NumberPickerSelectedItemDecoration(
-              axis: widget.axis,
-              itemExtent: itemExtent,
-              decoration: widget.decoration,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
